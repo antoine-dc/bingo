@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bingo du rendez-vous</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root{
+        --bg:#ECE8F4;--paper:#FBFAFE;--ink:#2A2140;--soft:#6B6383;--line:#CFC8E0;
+        --dauber:#E2456E;--win:#2A2140;
+      }
+      @media (prefers-color-scheme:dark){
+        :root{--bg:#1B1626;--paper:#262035;--ink:#F1ECFA;--soft:#A79FBD;--line:#3E3554;--dauber:#FF5F86;--win:#F1ECFA}
+      }
+      *{box-sizing:border-box}
+      html,body{margin:0}
+      body{background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;display:flex;justify-content:center;padding:clamp(16px,4vw,48px) 12px}
+      main{width:100%;max-width:640px}
+      h1{font-size:clamp(2.2rem,8vw,3.6rem);font-weight:800;line-height:.95;letter-spacing:-.03em;margin:0 0 .4rem}
+      .sub{color:var(--soft);margin:0 0 1.5rem;font-size:1rem}
+      .status{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.75rem;gap:1rem}
+      .count{font-size:1rem;color:var(--soft)}
+      .count strong{color:var(--ink);font-weight:600}
+      .bingo{font-weight:800;font-size:1.4rem;color:var(--dauber);min-height:1.6rem}
+      .grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:2px solid var(--ink);border-radius:14px;overflow:hidden;background:var(--paper)}
+      .cell{position:relative;aspect-ratio:1;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;font-size:clamp(.62rem,2.3vw,.9rem);line-height:1.15;padding:6px;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;overflow:hidden}
+      .cell:nth-child(5n){border-right:0}
+      .cell:nth-last-child(-n+5){border-bottom:0}
+      .cell span{position:relative;z-index:1}
+      .cell::before{content:"";position:absolute;width:82%;aspect-ratio:1;border-radius:50%;background:var(--dauber);opacity:0;transform:scale(.4) rotate(-12deg);transition:transform .22s cubic-bezier(.3,1.6,.5,1),opacity .15s}
+      .cell.on::before{opacity:.32;transform:scale(1) rotate(0)}
+      .cell.win::before{opacity:.85}
+      .cell.win span{color:#fff;font-weight:600}
+      .cell.free{cursor:default;font-weight:800;color:var(--soft)}
+      .cell:focus-visible{outline:3px solid var(--dauber);outline-offset:-3px}
+      .actions{display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap}
+      button.act{font:inherit;font-weight:600;font-size:.95rem;padding:.65rem 1.1rem;border-radius:999px;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}
+      button.act.primary{background:var(--ink);color:var(--paper)}
+      button.act:focus-visible{outline:3px solid var(--dauber);outline-offset:2px}
+      .note{color:var(--soft);font-size:.85rem;margin-top:1.25rem;line-height:1.5}
+      @media (prefers-reduced-motion:reduce){.cell::before{transition:none}}
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Bingo du rendez-vous</h1>
+      <p class="sub">
+        Touche une case quand ça se vérifie. Une ligne, une colonne ou une
+        diagonale complète, et c'est bingo.
+      </p>
+
+      <div class="status">
+        <span class="count"
+          ><strong id="count">0</strong> / 24 cases cochées</span
+        >
+        <span class="bingo" id="bingo" aria-live="polite"></span>
+      </div>
+
+      <div
+        class="grid"
+        id="grid"
+        role="grid"
+        aria-label="Grille de bingo"
+      ></div>
+
+      <div class="actions">
+        <button class="act" id="reset">Effacer les marques</button>
+        <button class="act primary" id="shuffle">Nouvelle grille</button>
+      </div>
+
+      <p class="note">
+        Chaque grille tire 24 critères au hasard parmi 28. Ta grille et tes
+        marques restent enregistrées dans ce navigateur.
+      </p>
+    </main>
+
+    <script>
+      const CRITERES = [
+        "Plus de 1m65",
+        "Yeux clairs",
+        "Corps fit",
+        "Fait du sport régulièrement",
+        "Etre plus coquine que moi",
+        "A des cheveux long",
+        "Ne me forces pas à danser",
+        "Me fait rire",
+        "Intelligente",
+        "Soigne son style",
+        "Fait des efforts en cuisine",
+        "Aime bien manger",
+        "Aime cuisiner",
+        "N'a pas froid aux yeux et le prouve",
+        "Aime l'impro",
+        "Regarde le sport à la télé",
+        "Aime le rugby",
+        "S'exprime bien",
+        "Aime la montagne",
+        "Ne vote pas extrême droite",
+        "Curieuse",
+        "À l'aise avec ma relation libre",
+        "Dit clairement ce qu'elle veut",
+        "Aime les jeux de société",
+        "Aime les films et séries",
+        "A vu Gladiator et Forrest Gump",
+        "Aime Paul Kalkbrenner",
+        "Tactile",
+        "Entreprenante",
+        "A de l'autodérision",
+        "Aime l'alcool",
+        "Je peux fumer devant elle",
+        "Pas pro vegan",
+        "Exhibition en public",
+        ""
+      ];
+
+      const FREE = 12;
+      const KEY = "bingo-rdv-v1";
+      const LINES = [];
+      for (let i = 0; i < 5; i++) {
+        LINES.push([0,1,2,3,4].map(j => i*5 + j));
+        LINES.push([0,1,2,3,4].map(j => j*5 + i));
+      }
+      LINES.push([0,6,12,18,24],[4,8,12,16,20]);
+
+      let state = load() || fresh();
+
+      function fresh() {
+        const pool = [...CRITERES];
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        const cells = pool.slice(0, 24);
+        cells.splice(FREE, 0, "Case libre");
+        return { cells, marked: [FREE] };
+      }
+
+      function load() {
+        try {
+          const s = JSON.parse(localStorage.getItem(KEY));
+          if (s && Array.isArray(s.cells) && s.cells.length === 25) return s;
+        } catch (e) {}
+        return null;
+      }
+
+      function save() {
+        try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+      }
+
+      const grid = document.getElementById("grid");
+
+      function render() {
+        grid.innerHTML = "";
+        const marked = new Set(state.marked);
+        const winners = new Set();
+        let lines = 0;
+        LINES.forEach(l => {
+          if (l.every(i => marked.has(i))) { lines++; l.forEach(i => winners.add(i)); }
+        });
+
+        state.cells.forEach((txt, i) => {
+          const b = document.createElement("button");
+          b.className = "cell";
+          b.setAttribute("role", "gridcell");
+          const span = document.createElement("span");
+          span.textContent = txt;
+          b.appendChild(span);
+          if (i === FREE) {
+            b.classList.add("free", "on");
+            if (winners.has(i)) b.classList.add("win");
+            b.setAttribute("aria-label", "Case libre");
+            b.tabIndex = -1;
+          } else {
+            if (marked.has(i)) b.classList.add("on");
+            if (winners.has(i)) b.classList.add("win");
+            b.setAttribute("aria-pressed", marked.has(i));
+            b.addEventListener("click", () => toggle(i));
+          }
+          grid.appendChild(b);
+        });
+
+        document.getElementById("count").textContent = marked.size - 1;
+        document.getElementById("bingo").textContent =
+          lines === 0 ? "" : lines === 1 ? "Bingo !" : `Bingo x${lines} !`;
+      }
+
+      function toggle(i) {
+        const m = new Set(state.marked);
+        m.has(i) ? m.delete(i) : m.add(i);
+        state.marked = [...m];
+        save();
+        render();
+      }
+
+      document.getElementById("reset").addEventListener("click", () => {
+        state.marked = [FREE];
+        save();
+        render();
+      });
+
+      document.getElementById("shuffle").addEventListener("click", () => {
+        state = fresh();
+        save();
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>
